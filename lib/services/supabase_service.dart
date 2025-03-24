@@ -1,56 +1,74 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:logger/logger.dart'; // Add this import
+import 'package:logger/logger.dart';
 
 class SupabaseService {
-  final supabase = Supabase.instance.client;
-  final logger = Logger(); // Add logger instance
-  
+  final SupabaseClient supabase;
+  final logger = Logger();
+
+  // Constructor for dependency injection
+  SupabaseService({SupabaseClient? client})
+      : supabase = client ?? Supabase.instance.client;
+
+  static const String tableName = 'entries'; // Centralize table name
+
   // Save a new entry to Supabase
   Future<void> saveEntry(Map<String, dynamic> entry) async {
     try {
-      await supabase.from('entries').insert(entry);
-      logger.i("Entry saved successfully: $entry"); // Use logger instead of print
+      await supabase.from(tableName).insert(entry);
+      logger.i("Entry saved successfully: $entry");
     } catch (e) {
-      logger.e("Error saving entry: $e"); // Use logger instead of print
+      logger.e("Error saving entry: $e");
       throw Exception('Failed to save entry: $e');
     }
   }
 
-  // Fetch all entries from Supabase
-  Future<List<Map<String, dynamic>>> fetchEntries() async {
+  // Fetch all entries from Supabase with optional pagination
+  Future<List<Map<String, dynamic>>> fetchEntries({
+    int page = 1,
+    int limit = 10,
+  }) async {
     try {
-      final response = await supabase.from('entries').select('*');
-      logger.d("Fetched entries successfully"); // Use logger instead of print
+      final response = await supabase
+          .from(tableName)
+          .select('*')
+          .range((page - 1) * limit, page * limit - 1); // Add pagination
+      logger.d("Fetched entries successfully");
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      logger.e("Error fetching entries: $e"); // Use logger instead of print
+      logger.e("Error fetching entries: $e");
       throw Exception('Failed to fetch entries: $e');
     }
   }
 
-  // Delete multiple entries by their IDs
+  // Delete multiple entries by their IDs using raw SQL
   Future<void> deleteEntries(List<String> ids) async {
     try {
-      // Fix: Use 'in' instead of 'isIn'
-      await supabase.from('entries').delete().any('id', ids);
-      logger.i("Deleted entries with IDs: $ids"); // Use logger instead of print
+      // Construct the SQL query to delete entries with matching IDs
+      final query = '''
+        DELETE FROM $tableName
+        WHERE id = ANY(ARRAY[${ids.map((id) => "'$id'").join(',')}])
+      ''';
+
+      // Execute the query
+      await supabase.rpc('execute_raw_query', params: {'query': query});
+      logger.i("Deleted entries with IDs: $ids");
     } catch (e) {
-      logger.e("Error deleting entries: $e"); // Use logger instead of print
+      logger.e("Error deleting entries: $e");
       throw Exception('Failed to delete entries: $e');
     }
   }
-  
-  // Add the missing getLastEntryDate method
+
+  // Get the last entry date
   Future<DateTime?> getLastEntryDate() async {
     try {
       final response = await supabase
-          .from('entries')
+          .from(tableName)
           .select('created_at')
           .order('created_at', ascending: false)
           .limit(1);
-      
+
       if (response.isNotEmpty && response[0]['created_at'] != null) {
-        return DateTime.parse(response[0]['created_at']);
+        return DateTime.tryParse(response[0]['created_at']); // Use tryParse for safety
       }
       return null;
     } catch (e) {
@@ -58,8 +76,4 @@ class SupabaseService {
       return null;
     }
   }
-}
-
-extension on PostgrestFilterBuilder {
-  any(String s, List<String> ids) {}
 }

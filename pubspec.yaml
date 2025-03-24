@@ -34,7 +34,7 @@ dependencies:
   postgrest: ^2.4.1 # Update to the latest version
   supabase_flutter: ^2.8.4 # Use the latest stable version
   gotrue: ^2.11.1 # Ensure this matches the version required by supabase_flutter
-  logger: ^1.1.0
+  logger: ^2.5.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
