@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
-import 'global_feed_screen.dart'; // Import the Global Feed screen
 import '../utils/constants.dart';
 
 class EntryScreen extends StatefulWidget {
@@ -64,10 +63,11 @@ class _EntryScreenState extends State<EntryScreen> {
         _isSaving = true; // Disable save button while saving
       });
       try {
-        await _supabaseService.saveEntry({
+        final entry = {
           'text': _controller.text,
-          'mood': _selectedMood,
-        });
+          'mood': _selectedMood ?? 'No mood', // Provide a default value if null
+        };
+        await _supabaseService.saveEntry(entry);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +116,7 @@ class _EntryScreenState extends State<EntryScreen> {
           padding: const EdgeInsets.all(8.0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _selectedMood == mood ? primaryColor : Colors.grey[300],
+            color: _selectedMood == mood ? Colors.orange : Colors.grey[300],
           ),
           child: Text(
             mood,
@@ -131,21 +131,8 @@ class _EntryScreenState extends State<EntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(appName),
+        title: const Text(appName),
         backgroundColor: primaryColor,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.list),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const GlobalFeedScreen(),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -214,7 +201,13 @@ class _EntryScreenState extends State<EntryScreen> {
                         final entry = entries[index];
                         return ListTile(
                           title: Text(entry['text']),
-                          subtitle: Text(entry['created_at'].toString()),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Mood: ${entry['mood'] ?? 'No mood'}"), // Fallback if mood is null
+                              Text("Created at: ${entry['created_at'].toString()}"),
+                            ],
+                          ),
                         );
                       },
                     );
