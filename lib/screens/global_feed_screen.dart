@@ -23,7 +23,9 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
         _selectedEntries.clear();
       });
     } catch (e) {
-      print("Error deleting selected entries: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete entries: $e')),
+      );
     }
   }
 
