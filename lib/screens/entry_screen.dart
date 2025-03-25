@@ -145,7 +145,7 @@ class _EntryScreenState extends State<EntryScreen> {
         title: const Text(appName),
         backgroundColor: primaryColor,
         actions: [
-          // Mood Tracker button added here
+          // Mood Tracker button
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () {
@@ -157,6 +157,7 @@ class _EntryScreenState extends State<EntryScreen> {
               );
             },
           ),
+          // Global Feed button
           IconButton(
             icon: const Icon(Icons.list),
             onPressed: () {
@@ -168,15 +169,18 @@ class _EntryScreenState extends State<EntryScreen> {
               );
             },
           ),
+          // Settings button - now awaits the result and reloads preferences
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const SettingsScreen(),
                 ),
               );
+              // Reload preferences so the entry list style updates immediately.
+              await _loadPreferences();
             },
           ),
         ],
