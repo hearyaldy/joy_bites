@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
 import 'global_feed_screen.dart';
 import 'mood_tracker_screen.dart';
 import 'settings_screen.dart';
+import 'auth_screen.dart';
 import '../widgets/current_mood_widget.dart';
 
 class EntryScreen extends StatefulWidget {
@@ -133,7 +135,7 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  // Function to get a quote based on current time of day.
+  // Returns a daily quote based on current time.
   String getDailyQuote() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
@@ -145,7 +147,7 @@ class _EntryScreenState extends State<EntryScreen> {
     }
   }
 
-  /// DailySummaryWidget combines the streak, current mood, and a daily changing quote.
+  // Builds a daily summary combining streak, current mood, and a dynamic quote.
   Widget _buildDailySummary() {
     String dailyQuote = getDailyQuote();
     return Card(
@@ -157,7 +159,7 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Combined Streak and Current Mood in one row
+            // Row combining streak and current mood.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -184,7 +186,7 @@ class _EntryScreenState extends State<EntryScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            // Daily inspirational quote
+            // Daily inspirational quote.
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -204,46 +206,96 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
+  // Retrieve the current user.
+  User? get currentUser => Supabase.instance.client.auth.currentUser;
+
   @override
   Widget build(BuildContext context) {
+    final user = currentUser;
     return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            // Drawer header with user information.
+            UserAccountsDrawerHeader(
+              accountName: Text(user?.userMetadata?['full_name'] as String? ?? 'Guest User'),
+              accountEmail: Text(user?.email ?? 'No Email'),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: ((user?.userMetadata?['avatar_url'] as String?) != null)
+                    ? NetworkImage(user!.userMetadata!['avatar_url'] as String)
+                    : null,
+                child: ((user?.userMetadata?['avatar_url'] as String?) == null)
+                    ? const Icon(Icons.person)
+                    : null,
+              ),
+              decoration: BoxDecoration(
+                color: primaryColor,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text("Profile"),
+              onTap: () {
+                // Navigate to a profile screen (to be implemented).
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text("Settings"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text("Logout"),
+              onTap: () async {
+                await Supabase.instance.client.auth.signOut();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AuthScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
-        title: const Text(appName),
+        title: Text("Welcome, ${user?.userMetadata?['full_name'] as String? ?? 'Guest'}"),
         backgroundColor: primaryColor,
         actions: [
-          // Mood Tracker button
+          // Mood Tracker button.
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const MoodTrackerScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const MoodTrackerScreen()),
               );
             },
           ),
-          // Global Feed button
+          // Global Feed button.
           IconButton(
             icon: const Icon(Icons.list),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const GlobalFeedScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const GlobalFeedScreen()),
               );
             },
           ),
-          // Settings button - reloads preferences on return
+          // Settings button: reload preferences on return.
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
               await _loadPreferences();
             },
