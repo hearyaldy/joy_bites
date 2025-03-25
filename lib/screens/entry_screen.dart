@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
 import 'global_feed_screen.dart';
-import 'settings_screen.dart';
 import 'mood_tracker_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'settings_screen.dart';
+import '../widgets/current_mood_widget.dart';
 
 class EntryScreen extends StatefulWidget {
   const EntryScreen({super.key});
@@ -19,8 +20,6 @@ class _EntryScreenState extends State<EntryScreen> {
   String? _selectedMood;
   bool _isSaving = false;
   int? _cachedStreak;
-
-  // Fetch entry list style from SharedPreferences
   String _entryListStyle = 'card';
 
   Future<void> _loadPreferences() async {
@@ -56,10 +55,8 @@ class _EntryScreenState extends State<EntryScreen> {
   Future<int> calculateStreak() async {
     final lastEntryDate = await _supabaseService.getLastEntryDate();
     if (lastEntryDate == null) return 0;
-
     final now = DateTime.now().toUtc();
     final difference = now.difference(lastEntryDate.toUtc()).inDays;
-
     if (difference == 0) {
       return 1;
     } else if (difference == 1) {
@@ -81,13 +78,11 @@ class _EntryScreenState extends State<EntryScreen> {
           'created_at': DateTime.now().toUtc().toIso8601String(),
         };
         await _supabaseService.saveEntry(entry);
-
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Entry saved!')),
           );
         }
-
         _controller.clear();
         setState(() {
           _selectedMood = null;
@@ -138,6 +133,77 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
+  // Function to get a quote based on current time of day.
+  String getDailyQuote() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return "Good morning! Embrace the possibilities of the day.";
+    } else if (hour < 18) {
+      return "Good afternoon! Let your gratitude guide you.";
+    } else {
+      return "Good evening! Reflect on the blessings of today.";
+    }
+  }
+
+  /// DailySummaryWidget combines the streak, current mood, and a daily changing quote.
+  Widget _buildDailySummary() {
+    String dailyQuote = getDailyQuote();
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Combined Streak and Current Mood in one row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(
+                  children: [
+                    const Icon(Icons.stars, color: Colors.orange),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Streak: ${_cachedStreak ?? 0} days",
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const Icon(Icons.mood, color: Colors.blue),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 20,
+                      child: CurrentMoodWidget(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Daily inspirational quote
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.format_quote, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    dailyQuote,
+                    style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -169,7 +235,7 @@ class _EntryScreenState extends State<EntryScreen> {
               );
             },
           ),
-          // Settings button - now awaits the result and reloads preferences
+          // Settings button - reloads preferences on return
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () async {
@@ -179,7 +245,6 @@ class _EntryScreenState extends State<EntryScreen> {
                   builder: (context) => const SettingsScreen(),
                 ),
               );
-              // Reload preferences so the entry list style updates immediately.
               await _loadPreferences();
             },
           ),
@@ -190,21 +255,8 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Streak display
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.stars, color: Colors.orange),
-                const SizedBox(width: 8),
-                _cachedStreak != null
-                    ? Text(
-                        "Streak: $_cachedStreak days",
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      )
-                    : const CircularProgressIndicator(),
-              ],
-            ),
-            const SizedBox(height: 20),
+            _buildDailySummary(),
+            const SizedBox(height: 12),
             TextField(
               controller: _controller,
               decoration: InputDecoration(

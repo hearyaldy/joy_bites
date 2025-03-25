@@ -22,23 +22,29 @@ class SupabaseService {
     }
   }
 
-  // Fetch entries with optional pagination and mood filtering
+  // Fetch entries with optional pagination, mood, and date filtering
   Future<List<Map<String, dynamic>>> fetchEntries({
     int page = 1,
     int limit = 10,
     String? mood,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     try {
       final from = (page - 1) * limit;
       final to = from + limit - 1;
 
-      // Use a dynamic query variable to allow method chaining without type issues.
       dynamic query = supabase.from(tableName).select('*');
       if (mood != null && mood.isNotEmpty) {
         query = query.eq('mood', mood);
       }
+      if (startDate != null) {
+        query = query.gte('created_at', startDate.toIso8601String());
+      }
+      if (endDate != null) {
+        query = query.lte('created_at', endDate.toIso8601String());
+      }
       final response = await query.order('created_at', ascending: false).range(from, to);
-
       logger.d("Fetched entries successfully");
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -60,7 +66,7 @@ class SupabaseService {
     }
   }
 
-  // Get the last entry date for streak calculation
+  // Get the last entry date (for streak calculation)
   Future<DateTime?> getLastEntryDate() async {
     try {
       final response = await supabase
@@ -68,7 +74,6 @@ class SupabaseService {
           .select('created_at')
           .order('created_at', ascending: false)
           .limit(1);
-
       if (response.isNotEmpty && response[0]['created_at'] != null) {
         return DateTime.tryParse(response[0]['created_at']);
       }
