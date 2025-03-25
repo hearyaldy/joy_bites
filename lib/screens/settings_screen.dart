@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
-import '../main.dart'; // for themeModeNotifier
+import '../main.dart'; // Import to access themeModeNotifier
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
   @override
-  _SettingsScreenState createState() => _SettingsScreenState();
+  SettingsScreenState createState() => SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class SettingsScreenState extends State<SettingsScreen> {
   // "system", "light", or "dark"
   String _themeMode = 'system';
   // "card", "compact", or "minimal"
@@ -178,8 +179,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (value) {
               setState(() {
                 _notificationsEnabled = value;
-                _savePreferences();
               });
+              _savePreferences();
             },
             secondary: const Icon(Icons.notifications),
           ),
@@ -212,12 +213,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-  }
-}
-
-extension StringExtension on String {
-  String capitalize() {
-    if (isEmpty) return this;
-    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }

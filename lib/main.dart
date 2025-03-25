@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/entry_screen.dart';
+import 'screens/auth_screen.dart';
 
+// Global theme notifier for dynamic theme switching.
 final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(ThemeMode.system);
 
 void main() async {
@@ -21,38 +23,34 @@ void main() async {
     return;
   }
 
-  runApp(const MyApp());
+  // Check if user is authenticated
+  final session = Supabase.instance.client.auth.currentSession;
+  runApp(MyApp(home: session != null ? const EntryScreen() : const AuthScreen()));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Widget home;
+  const MyApp({Key? key, required this.home}) : super(key: key);
+  
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeModeNotifier,
-      builder: (context, currentTheme, child) {
+      builder: (context, themeMode, _) {
         return MaterialApp(
           title: 'JoyBites',
           theme: ThemeData(
             brightness: Brightness.light,
             primarySwatch: Colors.orange,
             fontFamily: 'Roboto',
-            textTheme: const TextTheme(
-              headlineLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              bodyLarge: TextStyle(fontSize: 16),
-            ),
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             primarySwatch: Colors.orange,
             fontFamily: 'Roboto',
-            textTheme: const TextTheme(
-              headlineLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              bodyLarge: TextStyle(fontSize: 16),
-            ),
           ),
-          themeMode: currentTheme,
-          home: const EntryScreen(),
+          themeMode: themeMode,
+          home: home,
         );
       },
     );
@@ -61,7 +59,8 @@ class MyApp extends StatelessWidget {
 
 class ErrorScreen extends StatelessWidget {
   final String errorMessage;
-  const ErrorScreen({super.key, required this.errorMessage});
+  const ErrorScreen({Key? key, required this.errorMessage}) : super(key: key);
+  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
