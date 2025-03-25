@@ -28,10 +28,15 @@ class SupabaseService {
     int limit = 10,
   }) async {
     try {
+      final from = (page - 1) * limit; // Calculate the starting index
+      final to = from + limit - 1; // Calculate the ending index
+
       final response = await supabase
           .from(tableName)
           .select('*')
-          .range((page - 1) * limit, page * limit - 1); // Add pagination
+          .order('created_at', ascending: false)
+          .range(from, to); // Use range for pagination
+
       logger.d("Fetched entries successfully");
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -40,17 +45,12 @@ class SupabaseService {
     }
   }
 
-  // Delete multiple entries by their IDs using raw SQL
-  Future<void> deleteEntries(List<String> ids) async {
+  // Delete multiple entries by their IDs
+  Future<void> deleteEntries(List<int> ids) async {
     try {
-      // Construct the SQL query to delete entries with matching IDs
-      final query = '''
-        DELETE FROM $tableName
-        WHERE id = ANY(ARRAY[${ids.map((id) => "'$id'").join(',')}])
-      ''';
-
-      // Execute the query
-      await supabase.rpc('execute_raw_query', params: {'query': query});
+      for (final id in ids) {
+        await supabase.from(tableName).delete().eq('id', id); // Compare as integers
+      }
       logger.i("Deleted entries with IDs: $ids");
     } catch (e) {
       logger.e("Error deleting entries: $e");

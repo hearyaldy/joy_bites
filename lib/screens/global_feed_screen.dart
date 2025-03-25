@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
-import '../utils/constants.dart'; // Import constants for theming
+import '../utils/constants.dart';
 
 class GlobalFeedScreen extends StatefulWidget {
   const GlobalFeedScreen({super.key});
@@ -11,55 +11,36 @@ class GlobalFeedScreen extends StatefulWidget {
 
 class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
   final SupabaseService _supabaseService = SupabaseService();
-  final Map<String, bool> _selectedEntries = {};
 
-  // Delete selected entries after confirmation
-  Future<void> _deleteSelectedEntries() async {
+  Future<List<Map<String, dynamic>>> _fetchEntries() async {
     try {
-      final selectedIds = _selectedEntries.entries
-          .where((entry) => entry.value)
-          .map((entry) => entry.key)
-          .toList();
-
-      if (selectedIds.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No entries selected to delete.')),
-        );
-        return;
-      }
-
-      // Show confirmation dialog before deleting
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Confirm Deletion"),
-          content: const Text("Are you sure you want to delete the selected entries?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Delete"),
-            ),
-          ],
-        ),
-      );
-
-      if (confirm == true) {
-        await _supabaseService.deleteEntries(selectedIds);
-        setState(() {
-          _selectedEntries.clear();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entries deleted successfully.')),
-        );
-      }
+      return await _supabaseService.fetchEntries();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete entries: $e')),
-      );
+      print("Error fetching entries: $e");
+      return [];
+    }
+  }
+
+  Future<void> _deleteEntry(String id) async {
+    try {
+      final int parsedId = int.tryParse(id) ?? -1;
+      if (parsedId == -1) {
+        throw Exception("Invalid ID format");
+      }
+
+      await _supabaseService.deleteEntries([parsedId]);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Entry deleted successfully!')),
+        );
+      }
+      setState(() {});
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete entry: $e')),
+        );
+      }
     }
   }
 
@@ -68,32 +49,23 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Global Positivity Feed"),
-        backgroundColor: primaryColor, // Use centralized theme color
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: _deleteSelectedEntries,
-          ),
-        ],
+        backgroundColor: primaryColor,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _supabaseService.fetchEntries(),
+        future: _fetchEntries(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text("Error loading feed: ${snapshot.error}"));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(Icons.sentiment_dissatisfied, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text(
-                    "No entries yet!",
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
+                  Text("No entries yet!", style: TextStyle(fontSize: 18, color: Colors.grey)),
                 ],
               ),
             );
@@ -103,15 +75,68 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                return CheckboxListTile(
-                  title: Text(entry['text']),
-                  subtitle: Text(entry['created_at'].toString()),
-                  value: _selectedEntries[entry['id']] ?? false,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedEntries[entry['id']] = value!;
-                    });
-                  },
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry['text'],
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Chip(
+                              label: Text(entry['mood'] ?? 'No mood'),
+                              backgroundColor: Colors.orange.shade100,
+                              labelStyle: const TextStyle(color: Colors.orange),
+                            ),
+                            const Spacer(),
+                            Text(
+                              "Created at: ${entry['created_at'].toString().split('.')[0]}",
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text("Delete Entry"),
+                                  content: const Text("Are you sure you want to delete this entry?"),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text("Cancel"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        _deleteEntry(entry['id'].toString());
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text("Delete"),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             );

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
+import 'global_feed_screen.dart';
+import 'settingsScreen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EntryScreen extends StatefulWidget {
   const EntryScreen({super.key});
@@ -13,59 +16,67 @@ class _EntryScreenState extends State<EntryScreen> {
   final TextEditingController _controller = TextEditingController();
   final SupabaseService _supabaseService = SupabaseService();
   String? _selectedMood;
-  bool _isSaving = false; // Track if the save operation is in progress
-  int? _cachedStreak; // Cache streak value to avoid recalculating
+  bool _isSaving = false;
+  int? _cachedStreak;
 
-  // Load streak on initialization
+  // Fetch entry list style from SharedPreferences
+  String _entryListStyle = 'card'; // Default to card-based style
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _entryListStyle = prefs.getString('entryListStyle') ?? 'card';
+    });
+  }
+
   Future<void> _loadStreak() async {
     try {
       _cachedStreak = await calculateStreak();
     } catch (e) {
       print("Error loading streak: $e");
-      _cachedStreak = 0; // Default to 0 if an error occurs
+      _cachedStreak = 0;
     }
-    setState(() {}); // Update UI after loading streak
+    setState(() {});
   }
 
   @override
   void initState() {
     super.initState();
-    _loadStreak(); // Load streak when the widget initializes
+    _loadStreak();
+    _loadPreferences(); // Load entry list style preference
   }
 
   @override
   void dispose() {
-    _controller.dispose(); // Dispose of the controller to prevent memory leaks
+    _controller.dispose();
     super.dispose();
   }
 
-  // Calculate streak based on last entry date
   Future<int> calculateStreak() async {
     final lastEntryDate = await _supabaseService.getLastEntryDate();
     if (lastEntryDate == null) return 0;
 
-    final now = DateTime.now().toUtc(); // Use UTC to avoid time zone issues
+    final now = DateTime.now().toUtc();
     final difference = now.difference(lastEntryDate.toUtc()).inDays;
 
     if (difference == 0) {
-      return 1; // Entry made today
+      return 1;
     } else if (difference == 1) {
-      return 2; // Entry made yesterday
+      return 2;
     } else {
-      return 0; // Streak broken
+      return 0;
     }
   }
 
-  // Save the user's entry to Supabase
   Future<void> _saveEntry() async {
     if (_controller.text.isNotEmpty) {
       setState(() {
-        _isSaving = true; // Disable save button while saving
+        _isSaving = true;
       });
       try {
         final entry = {
           'text': _controller.text,
-          'mood': _selectedMood ?? 'No mood', // Provide a default value if null
+          'mood': _selectedMood ?? 'No mood',
         };
         await _supabaseService.saveEntry(entry);
 
@@ -75,12 +86,11 @@ class _EntryScreenState extends State<EntryScreen> {
           );
         }
 
-        _controller.clear(); // Clear text field
+        _controller.clear();
         setState(() {
-          _selectedMood = null; // Reset mood selection
+          _selectedMood = null;
         });
 
-        // Reload streak after saving a new entry
         await _loadStreak();
       } catch (e) {
         if (context.mounted) {
@@ -90,7 +100,7 @@ class _EntryScreenState extends State<EntryScreen> {
         }
       } finally {
         setState(() {
-          _isSaving = false; // Re-enable save button
+          _isSaving = false;
         });
       }
     } else {
@@ -102,7 +112,6 @@ class _EntryScreenState extends State<EntryScreen> {
     }
   }
 
-  // Build reusable mood buttons
   Widget _buildMoodButton(String mood) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -112,8 +121,9 @@ class _EntryScreenState extends State<EntryScreen> {
             _selectedMood = mood;
           });
         },
-        child: Container(
-          padding: const EdgeInsets.all(8.0),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(12.0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: _selectedMood == mood ? Colors.orange : Colors.grey[300],
@@ -133,10 +143,35 @@ class _EntryScreenState extends State<EntryScreen> {
       appBar: AppBar(
         title: const Text(appName),
         backgroundColor: primaryColor,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.list),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GlobalFeedScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -148,7 +183,7 @@ class _EntryScreenState extends State<EntryScreen> {
                         "Streak: $_cachedStreak days",
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       )
-                    : const CircularProgressIndicator(), // Show loader while streak loads
+                    : const CircularProgressIndicator(),
               ],
             ),
             const SizedBox(height: 20),
@@ -156,8 +191,10 @@ class _EntryScreenState extends State<EntryScreen> {
               controller: _controller,
               decoration: InputDecoration(
                 labelText: "What’s your one good thing today?",
-                border: const OutlineInputBorder(),
-                counterText: '${_controller.text.length}/100', // Dynamic counter
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                counterText: '${_controller.text.length}/100',
               ),
               maxLength: 100,
             ),
@@ -174,6 +211,7 @@ class _EntryScreenState extends State<EntryScreen> {
             ElevatedButton(
               onPressed: _isSaving ? null : _saveEntry,
               style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
                 backgroundColor: primaryColor,
               ),
               child: Text(_isSaving ? 'Saving...' : 'Save'),
@@ -192,23 +230,74 @@ class _EntryScreenState extends State<EntryScreen> {
                   } else if (snapshot.hasError) {
                     return Center(child: Text("Error loading entries: ${snapshot.error}"));
                   } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text("No entries yet!"));
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.sentiment_dissatisfied, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text("No entries yet!", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        ],
+                      ),
+                    );
                   } else {
                     final entries = snapshot.data!;
                     return ListView.builder(
                       itemCount: entries.length,
                       itemBuilder: (context, index) {
                         final entry = entries[index];
-                        return ListTile(
-                          title: Text(entry['text']),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Mood: ${entry['mood'] ?? 'No mood'}"), // Fallback if mood is null
-                              Text("Created at: ${entry['created_at'].toString()}"),
-                            ],
-                          ),
-                        );
+                        switch (_entryListStyle) {
+                          case 'card':
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      entry['text'],
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Chip(
+                                          label: Text(entry['mood'] ?? 'No mood'),
+                                          backgroundColor: Colors.orange.shade100,
+                                          labelStyle: const TextStyle(color: Colors.orange),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          "Created at: ${entry['created_at'].toString().split('.')[0]}",
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          case 'compact':
+                            return ListTile(
+                              title: Text(entry['text']),
+                              subtitle: Text("Mood: ${entry['mood'] ?? 'No mood'}"),
+                            );
+                          case 'minimal':
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                entry['text'],
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            );
+                          default:
+                            return const SizedBox();
+                        }
                       },
                     );
                   }
@@ -216,10 +305,20 @@ class _EntryScreenState extends State<EntryScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              "\"Gratitude turns what we have into enough.\"",
-              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
-              textAlign: TextAlign.center,
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  "\"Gratitude turns what we have into enough.\"",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
           ],
         ),
