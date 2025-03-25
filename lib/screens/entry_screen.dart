@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
 import 'global_feed_screen.dart';
-import 'settingsScreen.dart';
+import 'settings_screen.dart';
+import 'mood_tracker_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EntryScreen extends StatefulWidget {
@@ -20,7 +21,7 @@ class _EntryScreenState extends State<EntryScreen> {
   int? _cachedStreak;
 
   // Fetch entry list style from SharedPreferences
-  String _entryListStyle = 'card'; // Default to card-based style
+  String _entryListStyle = 'card';
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
@@ -43,7 +44,7 @@ class _EntryScreenState extends State<EntryScreen> {
   void initState() {
     super.initState();
     _loadStreak();
-    _loadPreferences(); // Load entry list style preference
+    _loadPreferences();
   }
 
   @override
@@ -77,6 +78,7 @@ class _EntryScreenState extends State<EntryScreen> {
         final entry = {
           'text': _controller.text,
           'mood': _selectedMood ?? 'No mood',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
         };
         await _supabaseService.saveEntry(entry);
 
@@ -90,7 +92,6 @@ class _EntryScreenState extends State<EntryScreen> {
         setState(() {
           _selectedMood = null;
         });
-
         await _loadStreak();
       } catch (e) {
         if (context.mounted) {
@@ -144,6 +145,18 @@ class _EntryScreenState extends State<EntryScreen> {
         title: const Text(appName),
         backgroundColor: primaryColor,
         actions: [
+          // Mood Tracker button added here
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MoodTrackerScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.list),
             onPressed: () {
@@ -173,6 +186,7 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Streak display
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
