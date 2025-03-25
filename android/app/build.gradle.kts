@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.joy_bites"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "27.0.12077973" // Use the desired NDK version
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
