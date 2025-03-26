@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
 
@@ -15,9 +16,22 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
   bool isLoading = true;
   int maxCount = 1;
 
+  // Get the current user.
+  User? get currentUser => Supabase.instance.client.auth.currentUser;
+
   Future<void> _loadMoodCounts() async {
     try {
-      final entries = await _supabaseService.fetchEntries(page: 1, limit: 100);
+      DateTime now = DateTime.now().toUtc();
+      DateTime startOfDay = DateTime.utc(now.year, now.month, now.day);
+      DateTime endOfDay = startOfDay.add(const Duration(days: 1));
+      // Fetch entries only for the current user.
+      final entries = await _supabaseService.fetchEntries(
+        userId: currentUser?.id,
+        page: 1,
+        limit: 100,
+        startDate: startOfDay,
+        endDate: endOfDay,
+      );
       final Map<String, int> counts = {};
       for (var entry in entries) {
         String mood = entry['mood'] ?? 'No mood';

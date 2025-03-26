@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
 
@@ -9,17 +10,17 @@ class GlobalFeedScreen extends StatefulWidget {
   _GlobalFeedScreenState createState() => _GlobalFeedScreenState();
 }
 
-class _GlobalFeedScreenState extends State<GlobalFeedScreen>
-    with SingleTickerProviderStateMixin {
+class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
   final SupabaseService _supabaseService = SupabaseService();
-  final List<Map<String, dynamic>> _entries = [];
+  List<Map<String, dynamic>> _entries = [];
   int _page = 1;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _filterMood;
   final ScrollController _scrollController = ScrollController();
 
-  late final AnimationController _animationController;
+  // Get the current authenticated user.
+  User? get currentUser => Supabase.instance.client.auth.currentUser;
 
   @override
   void initState() {
@@ -31,15 +32,6 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen>
         _loadMoreEntries();
       }
     });
-    _animationController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _animationController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadEntries({bool reset = false}) async {
@@ -49,6 +41,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen>
       _entries.clear();
     }
     try {
+      // Fetch all entries (global feed, no userId filter).
       final newEntries = await _supabaseService.fetchEntries(
         page: _page,
         limit: 10,
@@ -60,7 +53,6 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen>
           _hasMore = false;
         }
       });
-      _animationController.forward(from: 0.0);
     } catch (e) {
       print("Error fetching entries: $e");
     }
@@ -84,7 +76,6 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen>
           _hasMore = false;
         }
       });
-      _animationController.forward(from: 0.0);
     } catch (e) {
       print("Error loading more entries: $e");
     } finally {
@@ -149,103 +140,84 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen>
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, Colors.orange.shade50],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: _entries.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: () async {
-                  await _loadEntries(reset: true);
-                },
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: _entries.length + (_isLoadingMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _entries.length) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final entry = _entries[index];
-                    return TweenAnimationBuilder<Offset>(
-                      tween: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero),
-                      duration: const Duration(milliseconds: 500),
-                      builder: (context, offset, child) => Transform.translate(
-                        offset: offset * 100,
-                        child: child,
-                      ),
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+      body: _entries.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () async {
+                await _loadEntries(reset: true);
+              },
+              child: ListView.builder(
+                controller: _scrollController,
+                itemCount: _entries.length + (_isLoadingMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _entries.length) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final entry = _entries[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry['text'],
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
                             children: [
+                              Chip(
+                                label: Text(entry['mood'] ?? 'No mood'),
+                                backgroundColor: Colors.orange.shade100,
+                                labelStyle: const TextStyle(color: Colors.orange),
+                              ),
+                              const Spacer(),
                               Text(
-                                entry['text'],
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Chip(
-                                    label: Text(entry['mood'] ?? 'No mood'),
-                                    backgroundColor: Colors.orange.shade100,
-                                    labelStyle: const TextStyle(color: Colors.orange),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    "Created at: ${entry['created_at'].toString().split('.')[0]}",
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text("Delete Entry"),
-                                        content: const Text("Are you sure you want to delete this entry?"),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context),
-                                            child: const Text("Cancel"),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              _deleteEntry(entry['id'].toString());
-                                              Navigator.pop(context);
-                                            },
-                                            child: const Text("Delete"),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
+                                "Created at: ${entry['created_at'].toString().split('.')[0]}",
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ],
                           ),
-                        ),
+                          // Show delete button only if this entry belongs to the current user.
+                          if (entry['user_id'] == currentUser?.id)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text("Delete Entry"),
+                                    content: const Text("Are you sure you want to delete this entry?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("Cancel"),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          _deleteEntry(entry['id'].toString());
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text("Delete"),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
-      ),
+            ),
     );
   }
 }

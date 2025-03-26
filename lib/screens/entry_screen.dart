@@ -54,6 +54,9 @@ class _EntryScreenState extends State<EntryScreen> {
     super.dispose();
   }
 
+  // Returns the current user.
+  User? get currentUser => Supabase.instance.client.auth.currentUser;
+
   Future<int> calculateStreak() async {
     final lastEntryDate = await _supabaseService.getLastEntryDate();
     if (lastEntryDate == null) return 0;
@@ -74,7 +77,9 @@ class _EntryScreenState extends State<EntryScreen> {
         _isSaving = true;
       });
       try {
+        final user = currentUser;
         final entry = {
+          'user_id': user?.id, // Tie the entry to the authenticated user.
           'text': _controller.text,
           'mood': _selectedMood ?? 'No mood',
           'created_at': DateTime.now().toUtc().toIso8601String(),
@@ -135,7 +140,7 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  // Returns a daily quote based on current time.
+  // Returns a daily quote based on the current time.
   String getDailyQuote() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
@@ -159,40 +164,38 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Row combining streak and current mood.
             Row(
-  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  children: [
-    Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.stars, color: Colors.orange),
-          const SizedBox(height: 4),
-          FittedBox(
-            child: Text(
-              "Streak: ${_cachedStreak ?? 0} days",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Icon(Icons.stars, color: Colors.orange),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        child: Text(
+                          "Streak: ${_cachedStreak ?? 0} days",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Icon(Icons.mood, color: Colors.blue),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        height: 20,
+                        child: CurrentMoodWidget(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    ),
-    Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.mood, color: Colors.blue),
-          const SizedBox(height: 4),
-          SizedBox(
-            height: 20,
-            child: CurrentMoodWidget(),
-          ),
-        ],
-      ),
-    ),
-  ],
-),
-
             const SizedBox(height: 12),
             // Daily inspirational quote.
             Row(
@@ -213,9 +216,6 @@ class _EntryScreenState extends State<EntryScreen> {
       ),
     );
   }
-
-  // Retrieve the current user.
-  User? get currentUser => Supabase.instance.client.auth.currentUser;
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +245,7 @@ class _EntryScreenState extends State<EntryScreen> {
               leading: const Icon(Icons.person),
               title: const Text("Profile"),
               onTap: () {
-                // Navigate to a profile screen (to be implemented).
+                // Navigate to Profile screen (to be implemented).
                 Navigator.pop(context);
               },
             ),
@@ -297,7 +297,7 @@ class _EntryScreenState extends State<EntryScreen> {
               );
             },
           ),
-          // Settings button: reload preferences on return.
+          // Settings button - reloads preferences on return.
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () async {
@@ -353,7 +353,7 @@ class _EntryScreenState extends State<EntryScreen> {
             ),
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _supabaseService.fetchEntries(),
+                future: _supabaseService.fetchEntries(userId: user?.id),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
