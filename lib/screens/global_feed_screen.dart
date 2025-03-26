@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
@@ -10,7 +11,7 @@ class GlobalFeedScreen extends StatefulWidget {
   _GlobalFeedScreenState createState() => _GlobalFeedScreenState();
 }
 
-class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
+class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerProviderStateMixin {
   final SupabaseService _supabaseService = SupabaseService();
   List<Map<String, dynamic>> _entries = [];
   int _page = 1;
@@ -22,16 +23,25 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
   // Get the current authenticated user.
   User? get currentUser => Supabase.instance.client.auth.currentUser;
 
+  late final AnimationController _animationController;
+
   @override
   void initState() {
     super.initState();
     _loadEntries(reset: true);
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 100) {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
         _loadMoreEntries();
       }
     });
+    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEntries({bool reset = false}) async {
@@ -41,7 +51,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
       _entries.clear();
     }
     try {
-      // Fetch all entries (global feed, no userId filter).
+      // Fetch all entries (global feed, not filtering by userId)
       final newEntries = await _supabaseService.fetchEntries(
         page: _page,
         limit: 10,
@@ -53,6 +63,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
           _hasMore = false;
         }
       });
+      _animationController.forward(from: 0.0);
     } catch (e) {
       print("Error fetching entries: $e");
     }
@@ -76,6 +87,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
           _hasMore = false;
         }
       });
+      _animationController.forward(from: 0.0);
     } catch (e) {
       print("Error loading more entries: $e");
     } finally {
@@ -95,9 +107,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
   Future<void> _deleteEntry(String id) async {
     try {
       final int parsedId = int.tryParse(id) ?? -1;
-      if (parsedId == -1) {
-        throw Exception("Invalid ID format");
-      }
+      if (parsedId == -1) throw Exception("Invalid ID format");
       await _supabaseService.deleteEntries([parsedId]);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -114,8 +124,23 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
     }
   }
 
+  // Group entries by date (formatted as yyyy-MM-dd).
+  Map<String, List<Map<String, dynamic>>> _groupEntriesByDate() {
+    Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (var entry in _entries) {
+      DateTime dt = DateTime.parse(entry['created_at']).toLocal();
+      String dateKey = "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+      grouped.putIfAbsent(dateKey, () => []);
+      grouped[dateKey]!.add(entry);
+    }
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final groupedEntries = _groupEntriesByDate();
+    List<String> sortedDates = groupedEntries.keys.toList()..sort((a, b) => b.compareTo(a));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Global Positivity Feed"),
@@ -140,84 +165,127 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> {
           ),
         ],
       ),
-      body: _entries.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () async {
-                await _loadEntries(reset: true);
-              },
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: _entries.length + (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _entries.length) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final entry = _entries[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry['text'],
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Chip(
-                                label: Text(entry['mood'] ?? 'No mood'),
-                                backgroundColor: Colors.orange.shade100,
-                                labelStyle: const TextStyle(color: Colors.orange),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Colors.orange.shade50],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: _entries.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: () async {
+                  await _loadEntries(reset: true);
+                },
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: Column(
+                    children: [
+                      ...sortedDates.map((dateKey) {
+                        List<Map<String, dynamic>> entriesForDate = groupedEntries[dateKey]!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              color: Colors.orange.shade100,
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                              child: Text(
+                                dateKey,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
-                              const Spacer(),
-                              Text(
-                                "Created at: ${entry['created_at'].toString().split('.')[0]}",
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          // Show delete button only if this entry belongs to the current user.
-                          if (entry['user_id'] == currentUser?.id)
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text("Delete Entry"),
-                                    content: const Text("Are you sure you want to delete this entry?"),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text("Cancel"),
+                            ),
+                            MasonryGridView.count(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                              itemCount: entriesForDate.length,
+                              itemBuilder: (context, index) {
+                                final entry = entriesForDate[index];
+                                return FadeTransition(
+                                  opacity: _animationController,
+                                  child: Card(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 2,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            entry['text'],
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Chip(
+                                                label: Text(entry['mood'] ?? 'No mood', style: const TextStyle(fontSize: 12)),
+                                                backgroundColor: Colors.orange.shade100,
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                entry['created_at'].toString().split('.')[0],
+                                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                              ),
+                                            ],
+                                          ),
+                                          if (entry['user_id'] == currentUser?.id)
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: IconButton(
+                                                icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+                                                onPressed: () {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) => AlertDialog(
+                                                      title: const Text("Delete Entry"),
+                                                      content: const Text("Are you sure you want to delete this entry?"),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(context),
+                                                          child: const Text("Cancel"),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed: () {
+                                                            _deleteEntry(entry['id'].toString());
+                                                            Navigator.pop(context);
+                                                          },
+                                                          child: const Text("Delete"),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                      TextButton(
-                                        onPressed: () {
-                                          _deleteEntry(entry['id'].toString());
-                                          Navigator.pop(context);
-                                        },
-                                        child: const Text("Delete"),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 );
                               },
                             ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                            const Divider(thickness: 2, height: 32),
+                          ],
+                        );
+                      }).toList(),
+                      if (_isLoadingMore)
+                        const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+      ),
     );
   }
 }
