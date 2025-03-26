@@ -12,7 +12,7 @@ class GlobalFeedScreen extends StatefulWidget {
 class _GlobalFeedScreenState extends State<GlobalFeedScreen>
     with SingleTickerProviderStateMixin {
   final SupabaseService _supabaseService = SupabaseService();
-  List<Map<String, dynamic>> _entries = [];
+  final List<Map<String, dynamic>> _entries = [];
   int _page = 1;
   bool _isLoadingMore = false;
   bool _hasMore = true;

@@ -120,9 +120,10 @@ class _AuthScreenState extends State<AuthScreen> {
               if (!_isLogin)
                 TextField(
                   controller: _displayNameController,
+                  style: const TextStyle(color: Colors.black),
                   decoration: InputDecoration(
                     labelText: "Display Name",
-                    labelStyle: const TextStyle(color: Colors.white),
+                    labelStyle: const TextStyle(color: Colors.black),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.8),
                     border: OutlineInputBorder(
@@ -133,9 +134,10 @@ class _AuthScreenState extends State<AuthScreen> {
               if (!_isLogin) const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
+                style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   labelText: "Email",
-                  labelStyle: const TextStyle(color: Colors.white),
+                  labelStyle: const TextStyle(color: Colors.black),
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.8),
                   border: OutlineInputBorder(
@@ -147,9 +149,10 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
+                style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   labelText: "Password",
-                  labelStyle: const TextStyle(color: Colors.white),
+                  labelStyle: const TextStyle(color: Colors.black),
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.8),
                   border: OutlineInputBorder(

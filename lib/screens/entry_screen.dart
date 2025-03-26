@@ -159,32 +159,40 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Row combining streak and current mood.
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Column(
-                  children: [
-                    const Icon(Icons.stars, color: Colors.orange),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Streak: ${_cachedStreak ?? 0} days",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Column(
-                  children: [
-                    const Icon(Icons.mood, color: Colors.blue),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      height: 20,
-                      child: CurrentMoodWidget(),
-                    ),
-                  ],
-                ),
-              ],
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
+    Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.stars, color: Colors.orange),
+          const SizedBox(height: 4),
+          FittedBox(
+            child: Text(
+              "Streak: ${_cachedStreak ?? 0} days",
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
+          ),
+        ],
+      ),
+    ),
+    Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.mood, color: Colors.blue),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 20,
+            child: CurrentMoodWidget(),
+          ),
+        ],
+      ),
+    ),
+  ],
+),
+
             const SizedBox(height: 12),
             // Daily inspirational quote.
             Row(

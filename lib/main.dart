@@ -30,7 +30,7 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   final Widget home;
-  const MyApp({Key? key, required this.home}) : super(key: key);
+  const MyApp({super.key, required this.home});
   
   @override
   Widget build(BuildContext context) {
@@ -59,7 +59,7 @@ class MyApp extends StatelessWidget {
 
 class ErrorScreen extends StatelessWidget {
   final String errorMessage;
-  const ErrorScreen({Key? key, required this.errorMessage}) : super(key: key);
+  const ErrorScreen({super.key, required this.errorMessage});
   
   @override
   Widget build(BuildContext context) {

@@ -4,7 +4,7 @@ import '../services/supabase_service.dart';
 class CurrentMoodWidget extends StatelessWidget {
   final SupabaseService supabaseService = SupabaseService();
 
-  CurrentMoodWidget({Key? key}) : super(key: key);
+  CurrentMoodWidget({super.key});
 
   Future<String> _getCurrentMood() async {
     DateTime now = DateTime.now().toUtc();
