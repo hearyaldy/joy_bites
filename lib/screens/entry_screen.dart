@@ -24,6 +24,9 @@ class _EntryScreenState extends State<EntryScreen> {
   int? _cachedStreak;
   String _entryListStyle = 'card';
 
+  // Key to force rebuild of the current mood widget after a new entry.
+  Key _currentMoodKey = UniqueKey();
+
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -54,21 +57,34 @@ class _EntryScreenState extends State<EntryScreen> {
     super.dispose();
   }
 
-  // Returns the current user.
-  User? get currentUser => Supabase.instance.client.auth.currentUser;
-
+  // Improved streak calculation: fetch last 30 entries, convert timestamps to local dates,
+  // remove duplicates, and count consecutive days starting from today.
   Future<int> calculateStreak() async {
-    final lastEntryDate = await _supabaseService.getLastEntryDate();
-    if (lastEntryDate == null) return 0;
-    final now = DateTime.now().toUtc();
-    final difference = now.difference(lastEntryDate.toUtc()).inDays;
-    if (difference == 0) {
-      return 1;
-    } else if (difference == 1) {
-      return 2;
-    } else {
-      return 0;
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return 0;
+
+    final entries = await _supabaseService.fetchEntries(
+      userId: user.id,
+      page: 1,
+      limit: 30,
+    );
+    if (entries.isEmpty) return 0;
+
+    final datesSet = entries.map((entry) {
+      DateTime dt = DateTime.parse(entry['created_at']).toLocal();
+      return DateTime(dt.year, dt.month, dt.day);
+    }).toSet();
+
+    List<DateTime> dates = datesSet.toList();
+    dates.sort((a, b) => b.compareTo(a)); // Descending order
+
+    int streak = 0;
+    DateTime today = DateTime.now();
+    DateTime currentDay = DateTime(today.year, today.month, today.day);
+    while (dates.contains(currentDay.subtract(Duration(days: streak)))) {
+      streak++;
     }
+    return streak;
   }
 
   Future<void> _saveEntry() async {
@@ -77,7 +93,7 @@ class _EntryScreenState extends State<EntryScreen> {
         _isSaving = true;
       });
       try {
-        final user = currentUser;
+        final user = Supabase.instance.client.auth.currentUser;
         final entry = {
           'user_id': user?.id, // Tie the entry to the authenticated user.
           'text': _controller.text,
@@ -93,6 +109,7 @@ class _EntryScreenState extends State<EntryScreen> {
         _controller.clear();
         setState(() {
           _selectedMood = null;
+          _currentMoodKey = UniqueKey(); // Force rebuild CurrentMoodWidget.
         });
         await _loadStreak();
       } catch (e) {
@@ -152,19 +169,19 @@ class _EntryScreenState extends State<EntryScreen> {
     }
   }
 
-  // Builds a daily summary combining streak, current mood, and a dynamic quote.
+  // DailySummaryWidget: displays the streak, current mood, a dynamic quote, and extra encouragement.
   Widget _buildDailySummary() {
     String dailyQuote = getDailyQuote();
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 20),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Row combining streak and current mood.
+            // Combined Row: streak and current mood.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -189,14 +206,14 @@ class _EntryScreenState extends State<EntryScreen> {
                       const SizedBox(height: 4),
                       SizedBox(
                         height: 20,
-                        child: CurrentMoodWidget(),
+                        child: CurrentMoodWidget(key: _currentMoodKey),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             // Daily inspirational quote.
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,11 +228,28 @@ class _EntryScreenState extends State<EntryScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
+            // Extra encouragement text.
+            Center(
+              child: Text(
+                (_cachedStreak ?? 0) >= 7
+                    ? "Amazing! You've reached a 7-day streak!"
+                    : "Keep going! Every entry counts!",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: (_cachedStreak ?? 0) >= 7 ? Colors.green : Colors.deepOrange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  // Retrieve the current user.
+  User? get currentUser => Supabase.instance.client.auth.currentUser;
 
   @override
   Widget build(BuildContext context) {
@@ -244,9 +278,12 @@ class _EntryScreenState extends State<EntryScreen> {
             ListTile(
               leading: const Icon(Icons.person),
               title: const Text("Profile"),
-              onTap: () {
-                // Navigate to Profile screen (to be implemented).
-                Navigator.pop(context);
+              onTap: () async {
+                // Navigate to ProfileScreen and refresh when returning.
+                bool? updated = await Navigator.pushNamed(context, '/profile') as bool?;
+                if (updated == true) {
+                  setState(() {});
+                }
               },
             ),
             ListTile(
@@ -297,7 +334,7 @@ class _EntryScreenState extends State<EntryScreen> {
               );
             },
           ),
-          // Settings button - reloads preferences on return.
+          // Settings button - reload preferences on return.
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () async {

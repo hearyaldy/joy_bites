@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:joy_bites/main.dart';
 import 'package:joy_bites/screens/entry_screen.dart';

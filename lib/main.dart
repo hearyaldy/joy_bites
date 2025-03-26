@@ -3,8 +3,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/entry_screen.dart';
 import 'screens/auth_screen.dart';
+import 'screens/profile_screen.dart';
 
-// Global theme notifier for dynamic theme switching.
 final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(ThemeMode.system);
 
 void main() async {
@@ -23,20 +23,19 @@ void main() async {
     return;
   }
 
-  // Check if user is authenticated
   final session = Supabase.instance.client.auth.currentSession;
   runApp(MyApp(home: session != null ? const EntryScreen() : const AuthScreen()));
 }
 
 class MyApp extends StatelessWidget {
   final Widget home;
-  const MyApp({super.key, required this.home});
+  const MyApp({Key? key, required this.home}) : super(key: key);
   
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeModeNotifier,
-      builder: (context, themeMode, _) {
+      builder: (context, currentTheme, _) {
         return MaterialApp(
           title: 'JoyBites',
           theme: ThemeData(
@@ -49,8 +48,11 @@ class MyApp extends StatelessWidget {
             primarySwatch: Colors.orange,
             fontFamily: 'Roboto',
           ),
-          themeMode: themeMode,
+          themeMode: currentTheme,
           home: home,
+          routes: {
+            '/profile': (context) => const ProfileScreen(),
+          },
         );
       },
     );
@@ -59,7 +61,7 @@ class MyApp extends StatelessWidget {
 
 class ErrorScreen extends StatelessWidget {
   final String errorMessage;
-  const ErrorScreen({super.key, required this.errorMessage});
+  const ErrorScreen({Key? key, required this.errorMessage}) : super(key: key);
   
   @override
   Widget build(BuildContext context) {

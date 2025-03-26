@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
-import '../main.dart'; // Import to access themeModeNotifier
+import '../main.dart'; // Import main.dart to access themeModeNotifier
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
