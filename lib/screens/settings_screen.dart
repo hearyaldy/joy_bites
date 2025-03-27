@@ -1,26 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
-import '../main.dart'; // To access themeModeNotifier
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  SettingsScreenState createState() => SettingsScreenState();
+  _SettingsScreenState createState() => _SettingsScreenState();
 }
 
-class SettingsScreenState extends State<SettingsScreen> {
-  String _themeMode = 'system';
-  String _entryListStyle = 'card';
+class _SettingsScreenState extends State<SettingsScreen> {
+  // Theme options
+  bool _isDarkMode = false;
+  String _themeMode = 'system'; // Can be 'light', 'dark', or 'system'
+
+  // Entry list style options
+  String _entryListStyle = 'card'; // Can be 'card', 'compact', or 'minimal'
+
+  // Notifications
   bool _notificationsEnabled = true;
 
+  // Load saved preferences on initialization
   @override
   void initState() {
     super.initState();
     _loadPreferences();
   }
 
+  // Save preferences using SharedPreferences
   Future<void> _savePreferences() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('themeMode', _themeMode);
@@ -28,35 +35,25 @@ class SettingsScreenState extends State<SettingsScreen> {
     await prefs.setBool('notificationsEnabled', _notificationsEnabled);
   }
 
+  // Load preferences from SharedPreferences
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _themeMode = prefs.getString('themeMode') ?? 'system';
       _entryListStyle = prefs.getString('entryListStyle') ?? 'card';
       _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
+      _isDarkMode = _themeMode == 'dark';
     });
-    _updateTheme();
   }
 
-  void _updateTheme() {
-    switch (_themeMode) {
-      case 'light':
-        themeModeNotifier.value = ThemeMode.light;
-        break;
-      case 'dark':
-        themeModeNotifier.value = ThemeMode.dark;
-        break;
-      default:
-        themeModeNotifier.value = ThemeMode.system;
-    }
-  }
-
+  // Show dialog for resetting streaks
   Future<void> _showResetStreakDialog() async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Reset Streak"),
-        content: const Text("Are you sure you want to reset your streak? This action cannot be undone."),
+        content: const Text(
+            "Are you sure you want to reset your streak? This action cannot be undone."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -64,6 +61,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () {
+              // Reset streak logic here
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Streak reset successfully!')),
               );
@@ -76,98 +74,106 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // No AppBar.
+      appBar: AppBar(
+        title: const Text("Settings"),
+        backgroundColor: primaryColor,
+      ),
       body: ListView(
+        padding: const EdgeInsets.all(16.0),
         children: [
-          _buildSectionTitle("Theme"),
-          RadioListTile<String>(
-            value: 'system',
-            groupValue: _themeMode,
-            onChanged: (value) {
-              setState(() {
-                _themeMode = value!;
-                _savePreferences();
-                _updateTheme();
-              });
+          // Theme Mode Selection
+          ListTile(
+            title: const Text("Theme"),
+            subtitle: Text(_themeMode.capitalize()),
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                builder: (context) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: const Text("System Default"),
+                      onTap: () {
+                        setState(() {
+                          _themeMode = 'system';
+                          _isDarkMode = false;
+                        });
+                        _savePreferences();
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ListTile(
+                      title: const Text("Light Mode"),
+                      onTap: () {
+                        setState(() {
+                          _themeMode = 'light';
+                          _isDarkMode = false;
+                        });
+                        _savePreferences();
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ListTile(
+                      title: const Text("Dark Mode"),
+                      onTap: () {
+                        setState(() {
+                          _themeMode = 'dark';
+                          _isDarkMode = true;
+                        });
+                        _savePreferences();
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                ),
+              );
             },
-            title: const Text("System Default"),
-            secondary: const Icon(Icons.settings_system_daydream),
           ),
-          RadioListTile<String>(
-            value: 'light',
-            groupValue: _themeMode,
-            onChanged: (value) {
-              setState(() {
-                _themeMode = value!;
-                _savePreferences();
-                _updateTheme();
-              });
+
+          // Entry List Style Selection
+          ListTile(
+            title: const Text("Entry List Style"),
+            subtitle: Text(_entryListStyle.capitalize()),
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                builder: (context) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: const Text("Card-Based"),
+                      onTap: () {
+                        setState(() => _entryListStyle = 'card');
+                        _savePreferences();
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ListTile(
+                      title: const Text("Compact"),
+                      onTap: () {
+                        setState(() => _entryListStyle = 'compact');
+                        _savePreferences();
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ListTile(
+                      title: const Text("Minimal"),
+                      onTap: () {
+                        setState(() => _entryListStyle = 'minimal');
+                        _savePreferences();
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                ),
+              );
             },
-            title: const Text("Light Mode"),
-            secondary: const Icon(Icons.wb_sunny),
           ),
-          RadioListTile<String>(
-            value: 'dark',
-            groupValue: _themeMode,
-            onChanged: (value) {
-              setState(() {
-                _themeMode = value!;
-                _savePreferences();
-                _updateTheme();
-              });
-            },
-            title: const Text("Dark Mode"),
-            secondary: const Icon(Icons.nightlight_round),
-          ),
-          const Divider(),
-          _buildSectionTitle("Entry List Style"),
-          RadioListTile<String>(
-            value: 'card',
-            groupValue: _entryListStyle,
-            onChanged: (value) {
-              setState(() {
-                _entryListStyle = value!;
-                _savePreferences();
-              });
-            },
-            title: const Text("Card-Based"),
-            secondary: const Icon(Icons.view_agenda),
-          ),
-          RadioListTile<String>(
-            value: 'compact',
-            groupValue: _entryListStyle,
-            onChanged: (value) {
-              setState(() {
-                _entryListStyle = value!;
-                _savePreferences();
-              });
-            },
-            title: const Text("Compact"),
-            secondary: const Icon(Icons.view_list),
-          ),
-          RadioListTile<String>(
-            value: 'minimal',
-            groupValue: _entryListStyle,
-            onChanged: (value) {
-              setState(() {
-                _entryListStyle = value!;
-                _savePreferences();
-              });
-            },
-            title: const Text("Minimal"),
-            secondary: const Icon(Icons.text_fields),
-          ),
-          const Divider(),
+
+          // Notifications Toggle
           SwitchListTile(
             title: const Text("Enable Notifications"),
             value: _notificationsEnabled,
@@ -177,24 +183,24 @@ class SettingsScreenState extends State<SettingsScreen> {
               });
               _savePreferences();
             },
-            secondary: const Icon(Icons.notifications),
           ),
-          const Divider(),
+
+          // Reset Streak Option
           ListTile(
-            leading: const Icon(Icons.refresh),
             title: const Text("Reset Streak"),
             onTap: _showResetStreakDialog,
           ),
-          const Divider(),
+
+          // About Section
           ListTile(
-            leading: const Icon(Icons.info_outline),
             title: const Text("About"),
             onTap: () {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text("About JoyBites"),
-                  content: const Text("An app to share positivity and track your gratitude streak."),
+                  content: const Text(
+                      "An app to share positivity and track your gratitude streak."),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -208,5 +214,13 @@ class SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+}
+
+// Helper extension to capitalize strings.
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }

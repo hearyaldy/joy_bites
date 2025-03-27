@@ -210,13 +210,11 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Select a date to view your mood",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text("Select a date to view your mood", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       _buildCalendar(),
                       const Divider(height: 32, thickness: 2),
-                      const Text("Mood Trend (Last 30 Days)",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text("Mood Trend (Last 30 Days)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       SizedBox(
                         height: 200,

@@ -8,10 +8,10 @@ import '../widgets/current_mood_widget.dart';
 class EntryScreen extends StatefulWidget {
   const EntryScreen({super.key});
   @override
-  _EntryScreenState createState() => _EntryScreenState();
+  EntryScreenState createState() => EntryScreenState();
 }
 
-class _EntryScreenState extends State<EntryScreen> {
+class EntryScreenState extends State<EntryScreen> {
   final TextEditingController _controller = TextEditingController();
   final SupabaseService _supabaseService = SupabaseService();
   String? _selectedMood;
@@ -22,7 +22,7 @@ class _EntryScreenState extends State<EntryScreen> {
   // Key to force rebuild of CurrentMoodWidget.
   Key _currentMoodKey = UniqueKey();
 
-  Future<void> _loadPreferences() async {
+  Future<void> loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _entryListStyle = prefs.getString('entryListStyle') ?? 'card';
@@ -43,7 +43,7 @@ class _EntryScreenState extends State<EntryScreen> {
   void initState() {
     super.initState();
     _loadStreak();
-    _loadPreferences();
+    loadPreferences();
   }
 
   @override
@@ -223,130 +223,133 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // No AppBar here—only body.
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDailySummary(),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                labelText: "What’s your one good thing today?",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                counterText: '${_controller.text.length}/100',
-              ),
-              maxLength: 100,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildMoodButton("😊"),
-                _buildMoodButton("😐"),
-                _buildMoodButton("😔"),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _saveEntry,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: primaryColor,
-              ),
-              child: Text(_isSaving ? 'Saving...' : 'Save'),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Recent Entries",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _supabaseService.fetchEntries(userId: Supabase.instance.client.auth.currentUser?.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text("Error loading entries: ${snapshot.error}"));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.sentiment_dissatisfied, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text("No entries yet!", style: TextStyle(fontSize: 18, color: Colors.grey)),
-                        ],
-                      ),
-                    );
-                  } else {
-                    final entries = snapshot.data!;
-                    return ListView.builder(
-                      itemCount: entries.length,
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  entry['text'],
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Chip(
-                                      label: Text(entry['mood'] ?? 'No mood'),
-                                      backgroundColor: Colors.orange.shade100,
-                                      labelStyle: const TextStyle(color: Colors.orange),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      "Created at: ${entry['created_at'].toString().split('.')[0]}",
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  "\"Gratitude turns what we have into enough.\"",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
+      // No AppBar.
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDailySummary(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  labelText: "What’s your one good thing today?",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  textAlign: TextAlign.center,
+                  counterText: '${_controller.text.length}/100',
+                ),
+                maxLength: 100,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildMoodButton("😊"),
+                  _buildMoodButton("😐"),
+                  _buildMoodButton("😔"),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _isSaving ? null : _saveEntry,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: primaryColor,
+                ),
+                child: Text(_isSaving ? 'Saving...' : 'Save'),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Recent Entries",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(
+                height: 300,
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _supabaseService.fetchEntries(userId: Supabase.instance.client.auth.currentUser?.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text("Error loading entries: ${snapshot.error}"));
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.sentiment_dissatisfied, size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text("No entries yet!", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                          ],
+                        ),
+                      );
+                    } else {
+                      final entries = snapshot.data!;
+                      return ListView.builder(
+                        itemCount: entries.length,
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry['text'],
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Chip(
+                                        label: Text(entry['mood'] ?? 'No mood'),
+                                        backgroundColor: Colors.orange.shade100,
+                                        labelStyle: const TextStyle(color: Colors.orange),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        "Created: ${entry['created_at'].toString().split('.')[0]}",
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }
+                  },
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    "\"Gratitude turns what we have into enough.\"",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
