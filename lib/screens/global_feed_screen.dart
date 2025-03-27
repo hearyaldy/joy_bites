@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
 
+enum FeedLayout { timeline, list, grid }
+
 class GlobalFeedScreen extends StatefulWidget {
   const GlobalFeedScreen({super.key});
 
@@ -19,6 +21,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
   bool _hasMore = true;
   String? _filterMood;
   final ScrollController _scrollController = ScrollController();
+  FeedLayout _feedLayout = FeedLayout.timeline;
 
   // Get the current authenticated user.
   User? get currentUser => Supabase.instance.client.auth.currentUser;
@@ -34,7 +37,10 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
         _loadMoreEntries();
       }
     });
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
   }
 
   @override
@@ -51,7 +57,6 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
       _entries.clear();
     }
     try {
-      // Fetch all entries (global feed, not filtering by userId)
       final newEntries = await _supabaseService.fetchEntries(
         page: _page,
         limit: 10,
@@ -59,9 +64,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
       );
       setState(() {
         _entries.addAll(newEntries);
-        if (newEntries.length < 10) {
-          _hasMore = false;
-        }
+        if (newEntries.length < 10) _hasMore = false;
       });
       _animationController.forward(from: 0.0);
     } catch (e) {
@@ -83,9 +86,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
       );
       setState(() {
         _entries.addAll(newEntries);
-        if (newEntries.length < 10) {
-          _hasMore = false;
-        }
+        if (newEntries.length < 10) _hasMore = false;
       });
       _animationController.forward(from: 0.0);
     } catch (e) {
@@ -109,31 +110,266 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
       final int parsedId = int.tryParse(id) ?? -1;
       if (parsedId == -1) throw Exception("Invalid ID format");
       await _supabaseService.deleteEntries([parsedId]);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entry deleted successfully!')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Entry deleted successfully!')),
+      );
       _loadEntries(reset: true);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete entry: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete entry: $e')),
+      );
     }
   }
 
-  // Group entries by date (formatted as yyyy-MM-dd).
+  // Group entries by date (yyyy-MM-dd).
   Map<String, List<Map<String, dynamic>>> _groupEntriesByDate() {
     Map<String, List<Map<String, dynamic>>> grouped = {};
     for (var entry in _entries) {
       DateTime dt = DateTime.parse(entry['created_at']).toLocal();
-      String dateKey = "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+      String dateKey =
+          "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
       grouped.putIfAbsent(dateKey, () => []);
       grouped[dateKey]!.add(entry);
     }
     return grouped;
+  }
+
+  Widget _buildTimelineView() {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: _entries.length,
+      itemBuilder: (context, index) {
+        final entry = _entries[index];
+        return FadeTransition(
+          opacity: _animationController,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  if (index != _entries.length - 1)
+                    Container(
+                      width: 2,
+                      height: 60,
+                      color: Colors.grey.shade300,
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry['text'],
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Chip(
+                              label: Text(entry['mood'] ?? 'No mood'),
+                              backgroundColor: Colors.orange.shade100,
+                            ),
+                            const Spacer(),
+                            Text(
+                              "Created: ${entry['created_at'].toString().split('.')[0]}",
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                        if (entry['user_id'] == currentUser?.id)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text("Delete Entry"),
+                                    content: const Text("Are you sure you want to delete this entry?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("Cancel"),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          _deleteEntry(entry['id'].toString());
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text("Delete"),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildListView() {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: _entries.length,
+      itemBuilder: (context, index) {
+        final entry = _entries[index];
+        return FadeTransition(
+          opacity: _animationController,
+          child: ListTile(
+            title: Text(entry['text']),
+            subtitle: Text("Mood: ${entry['mood'] ?? 'No mood'}\nCreated: ${entry['created_at'].toString().split('.')[0]}"),
+            trailing: entry['user_id'] == currentUser?.id
+                ? IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Delete Entry"),
+                          content: const Text("Are you sure you want to delete this entry?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _deleteEntry(entry['id'].toString());
+                                Navigator.pop(context);
+                              },
+                              child: const Text("Delete"),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridView() {
+    return GridView.builder(
+      controller: _scrollController,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: _entries.length,
+      itemBuilder: (context, index) {
+        final entry = _entries[index];
+        return FadeTransition(
+          opacity: _animationController,
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry['text'],
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Chip(
+                        label: Text(entry['mood'] ?? 'No mood', style: const TextStyle(fontSize: 12)),
+                        backgroundColor: Colors.orange.shade100,
+                      ),
+                      const Spacer(),
+                      Text(
+                        entry['created_at'].toString().split('.')[0],
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  if (entry['user_id'] == currentUser?.id)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text("Delete Entry"),
+                              content: const Text("Are you sure you want to delete this entry?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    _deleteEntry(entry['id'].toString());
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text("Delete"),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Build the feed based on selected layout.
+  Widget _buildFeed() {
+    switch (_feedLayout) {
+      case FeedLayout.timeline:
+        return _buildTimelineView();
+      case FeedLayout.list:
+        return _buildListView();
+      case FeedLayout.grid:
+        return _buildGridView();
+      default:
+        return _buildTimelineView();
+    }
   }
 
   @override
@@ -142,29 +378,7 @@ class _GlobalFeedScreenState extends State<GlobalFeedScreen> with SingleTickerPr
     List<String> sortedDates = groupedEntries.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Global Positivity Feed"),
-        backgroundColor: primaryColor,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: DropdownButton<String>(
-              value: _filterMood,
-              hint: const Text("Filter by Mood", style: TextStyle(color: Colors.white)),
-              dropdownColor: primaryColor,
-              icon: const Icon(Icons.filter_list, color: Colors.white),
-              underline: Container(),
-              onChanged: _onFilterChanged,
-              items: <String>["😊", "😐", "😔", "No mood"]
-                  .map((mood) => DropdownMenuItem<String>(
-                        value: mood,
-                        child: Text(mood, style: const TextStyle(color: Colors.white)),
-                      ))
-                  .toList(),
-            ),
-          ),
-        ],
-      ),
+      // No AppBar here.
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

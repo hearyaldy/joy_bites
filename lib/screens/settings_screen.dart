@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
-import '../main.dart'; // Import main.dart to access themeModeNotifier
+import '../main.dart'; // To access themeModeNotifier
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,9 +11,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class SettingsScreenState extends State<SettingsScreen> {
-  // "system", "light", or "dark"
   String _themeMode = 'system';
-  // "card", "compact", or "minimal"
   String _entryListStyle = 'card';
   bool _notificationsEnabled = true;
 
@@ -88,10 +86,7 @@ class SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Settings"),
-        backgroundColor: primaryColor,
-      ),
+      // No AppBar.
       body: ListView(
         children: [
           _buildSectionTitle("Theme"),

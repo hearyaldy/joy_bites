@@ -4,7 +4,7 @@ import '../services/supabase_service.dart';
 class CurrentMoodWidget extends StatelessWidget {
   final SupabaseService supabaseService = SupabaseService();
 
-  CurrentMoodWidget({Key? key}) : super(key: key);
+  CurrentMoodWidget({super.key});
 
   Future<String> _getCurrentMood() async {
     DateTime now = DateTime.now().toUtc();
@@ -46,13 +46,7 @@ class CurrentMoodWidget extends StatelessWidget {
                 "Current Mood: ",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              Expanded(
-                child: Text(
-                  snapshot.data!,
-                  style: const TextStyle(fontSize: 18),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              Text(snapshot.data!, style: const TextStyle(fontSize: 18)),
             ],
           );
         }

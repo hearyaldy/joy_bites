@@ -14,25 +14,22 @@ class MoodTrackerScreen extends StatefulWidget {
 
 class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
   final SupabaseService _supabaseService = SupabaseService();
-  // Map of each day to its dominant mood (emoji)
   Map<DateTime, String> moodByDate = {};
   bool isLoading = true;
   List<FlSpot> moodTrendSpots = [];
   String moodInsight = "No data available";
 
-  // For calendar selection.
+  // Calendar selection
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
 
-  // Get the current authenticated user.
+  // Get the current user.
   User? get currentUser => Supabase.instance.client.auth.currentUser;
 
-  // Load mood data for the past 30 days.
   Future<void> _loadMoodData() async {
     try {
       DateTime now = DateTime.now().toUtc();
       DateTime startDate = now.subtract(const Duration(days: 30));
-      // Fetch entries for the current user.
       final entries = await _supabaseService.fetchEntries(
         userId: currentUser?.id,
         page: 1,
@@ -40,7 +37,6 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
         startDate: startDate,
         endDate: now,
       );
-      // Group moods by day.
       Map<DateTime, List<String>> moodsPerDay = {};
       for (var entry in entries) {
         DateTime dt = DateTime.parse(entry['created_at']).toLocal();
@@ -48,7 +44,6 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
         moodsPerDay.putIfAbsent(day, () => []);
         moodsPerDay[day]!.add(entry['mood'] ?? 'No mood');
       }
-      // Determine dominant mood for each day.
       Map<DateTime, String> dominantMoodPerDay = {};
       moodsPerDay.forEach((day, moods) {
         Map<String, int> count = {};
@@ -59,8 +54,6 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
         dominantMoodPerDay[day] = dominant;
       });
 
-      // Prepare data for the line chart.
-      // Assign numeric values: 😊 = 2, 😐 = 1, 😔 = 0, No mood = -1.
       Map<String, double> moodValues = {
         "😊": 2,
         "😐": 1,
@@ -76,7 +69,6 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
       });
       spots.sort((a, b) => a.x.compareTo(b.x));
 
-      // Determine overall dominant mood.
       Map<String, int> overallCounts = {};
       dominantMoodPerDay.forEach((day, mood) {
         overallCounts[mood] = (overallCounts[mood] ?? 0) + 1;
@@ -105,7 +97,6 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
     _loadMoodData();
   }
 
-  // Build calendar view with dark mode support.
   Widget _buildCalendar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return TableCalendar(
@@ -136,11 +127,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
       ),
       headerStyle: HeaderStyle(
         formatButtonVisible: false,
-        titleTextStyle: TextStyle(
-          fontSize: 16, 
-          fontWeight: FontWeight.bold, 
-          color: isDark ? Colors.white : Colors.black,
-        ),
+        titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
         decoration: BoxDecoration(color: isDark ? Colors.black87 : primaryColor),
         titleCentered: true,
         leftChevronIcon: Icon(Icons.chevron_left, color: isDark ? Colors.white : Colors.black),
@@ -153,7 +140,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
               bottom: 1,
               child: Text(
                 moodByDate[day]!,
-                style: const TextStyle(fontSize: 16),
+                style: TextStyle(fontSize: 16, color: isDark ? Colors.white : Colors.black),
               ),
             );
           }
@@ -163,7 +150,6 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
     );
   }
 
-  // Build the line chart with gradient.
   Widget _buildLineChart() {
     return LineChart(
       LineChartData(
@@ -205,10 +191,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Mood Tracker"),
-        backgroundColor: primaryColor,
-      ),
+      // No AppBar.
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -227,17 +210,13 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Select a date to view your mood",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("Select a date to view your mood",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       _buildCalendar(),
                       const Divider(height: 32, thickness: 2),
-                      const Text(
-                        "Mood Trend (Last 30 Days)",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("Mood Trend (Last 30 Days)",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       SizedBox(
                         height: 200,
@@ -248,7 +227,7 @@ class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
                         moodInsight,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      // Additional elements (e.g., detailed logs or insights) can be added here.
+                      // Additional elements like detailed logs or insights can be added here.
                     ],
                   ),
                 ),

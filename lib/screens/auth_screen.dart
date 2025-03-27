@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'entry_screen.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+  const AuthScreen({super.key});
 
   @override
   _AuthScreenState createState() => _AuthScreenState();
@@ -25,7 +25,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     try {
       if (_isLogin) {
-        // Attempt login.
         final response = await _supabase.auth.signInWithPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -41,7 +40,6 @@ class _AuthScreenState extends State<AuthScreen> {
           });
         }
       } else {
-        // For sign-up, ensure display name is provided.
         if (_displayNameController.text.trim().isEmpty) {
           setState(() {
             _errorMessage = "Please enter a display name.";
@@ -57,9 +55,7 @@ class _AuthScreenState extends State<AuthScreen> {
         );
         if (response.user != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Sign up successful! Check your email for confirmation."),
-            ),
+            const SnackBar(content: Text("Sign up successful! Check your email for confirmation.")),
           );
           setState(() {
             _isLogin = true;
@@ -92,7 +88,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Background gradient for a modern look.
+      // No AppBar.
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -116,7 +112,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              // Only show display name field for sign-up.
               if (!_isLogin)
                 TextField(
                   controller: _displayNameController,
@@ -203,7 +198,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
-              // Future: Add social authentication buttons here.
             ],
           ),
         ),

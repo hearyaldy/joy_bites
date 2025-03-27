@@ -15,7 +15,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _selectedAvatar;
   bool _isUpdating = false;
 
-  // Sample avatar URLs (cartoon characters or any images you choose).
+  // Sample avatar URLs (cartoon characters or similar).
   final List<String> _avatarUrls = [
     'https://i.pravatar.cc/150?img=10',
     'https://i.pravatar.cc/150?img=11',
@@ -53,9 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
-        // Optionally, refresh the session if needed:
-        // await _supabase.auth.refreshSession();
-        Navigator.pop(context, true); // Return true to indicate update success.
+        Navigator.pop(context, true);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,10 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Edit Profile"),
-        backgroundColor: primaryColor,
-      ),
+      // No AppBar.
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: _isUpdating

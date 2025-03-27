@@ -3,15 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../utils/constants.dart';
-import 'global_feed_screen.dart';
-import 'mood_tracker_screen.dart';
-import 'settings_screen.dart';
-import 'auth_screen.dart';
 import '../widgets/current_mood_widget.dart';
 
 class EntryScreen extends StatefulWidget {
   const EntryScreen({super.key});
-
   @override
   _EntryScreenState createState() => _EntryScreenState();
 }
@@ -24,7 +19,7 @@ class _EntryScreenState extends State<EntryScreen> {
   int? _cachedStreak;
   String _entryListStyle = 'card';
 
-  // Key to force rebuild of the current mood widget after a new entry.
+  // Key to force rebuild of CurrentMoodWidget.
   Key _currentMoodKey = UniqueKey();
 
   Future<void> _loadPreferences() async {
@@ -57,27 +52,17 @@ class _EntryScreenState extends State<EntryScreen> {
     super.dispose();
   }
 
-  // Improved streak calculation: fetch last 30 entries, convert timestamps to local dates,
-  // remove duplicates, and count consecutive days starting from today.
   Future<int> calculateStreak() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return 0;
-
-    final entries = await _supabaseService.fetchEntries(
-      userId: user.id,
-      page: 1,
-      limit: 30,
-    );
+    final entries = await _supabaseService.fetchEntries(userId: user.id, page: 1, limit: 30);
     if (entries.isEmpty) return 0;
-
     final datesSet = entries.map((entry) {
       DateTime dt = DateTime.parse(entry['created_at']).toLocal();
       return DateTime(dt.year, dt.month, dt.day);
     }).toSet();
-
     List<DateTime> dates = datesSet.toList();
-    dates.sort((a, b) => b.compareTo(a)); // Descending order
-
+    dates.sort((a, b) => b.compareTo(a));
     int streak = 0;
     DateTime today = DateTime.now();
     DateTime currentDay = DateTime(today.year, today.month, today.day);
@@ -95,40 +80,35 @@ class _EntryScreenState extends State<EntryScreen> {
       try {
         final user = Supabase.instance.client.auth.currentUser;
         final entry = {
-          'user_id': user?.id, // Tie the entry to the authenticated user.
+          'user_id': user?.id,
           'text': _controller.text,
           'mood': _selectedMood ?? 'No mood',
           'created_at': DateTime.now().toUtc().toIso8601String(),
         };
+        print("Saving entry: $entry");
         await _supabaseService.saveEntry(entry);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Entry saved!')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Entry saved!')),
+        );
         _controller.clear();
         setState(() {
           _selectedMood = null;
-          _currentMoodKey = UniqueKey(); // Force rebuild CurrentMoodWidget.
+          _currentMoodKey = UniqueKey();
         });
         await _loadStreak();
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save entry: $e')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save entry: $e')),
+        );
       } finally {
         setState(() {
           _isSaving = false;
         });
       }
     } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter something!')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter something!')),
+      );
     }
   }
 
@@ -140,6 +120,7 @@ class _EntryScreenState extends State<EntryScreen> {
           setState(() {
             _selectedMood = mood;
           });
+          print("Selected mood: $mood");
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -157,19 +138,13 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  // Returns a daily quote based on the current time.
   String getDailyQuote() {
     final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return "Good morning! Embrace the possibilities of the day.";
-    } else if (hour < 18) {
-      return "Good afternoon! Let your gratitude guide you.";
-    } else {
-      return "Good evening! Reflect on the blessings of today.";
-    }
+    if (hour < 12) return "Good morning! Embrace the possibilities of the day.";
+    if (hour < 18) return "Good afternoon! Let your gratitude guide you.";
+    return "Good evening! Reflect on the blessings of today.";
   }
 
-  // DailySummaryWidget: displays the streak, current mood, a dynamic quote, and extra encouragement.
   Widget _buildDailySummary() {
     String dailyQuote = getDailyQuote();
     return Card(
@@ -181,7 +156,6 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Combined Row: streak and current mood.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -214,7 +188,6 @@ class _EntryScreenState extends State<EntryScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            // Daily inspirational quote.
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -229,7 +202,6 @@ class _EntryScreenState extends State<EntryScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            // Extra encouragement text.
             Center(
               child: Text(
                 (_cachedStreak ?? 0) >= 7
@@ -248,105 +220,10 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  // Retrieve the current user.
-  User? get currentUser => Supabase.instance.client.auth.currentUser;
-
   @override
   Widget build(BuildContext context) {
-    final user = currentUser;
     return Scaffold(
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // Drawer header with user information.
-            UserAccountsDrawerHeader(
-              accountName: Text(user?.userMetadata?['full_name'] as String? ?? 'Guest User'),
-              accountEmail: Text(user?.email ?? 'No Email'),
-              currentAccountPicture: CircleAvatar(
-                backgroundImage: ((user?.userMetadata?['avatar_url'] as String?) != null)
-                    ? NetworkImage(user!.userMetadata!['avatar_url'] as String)
-                    : null,
-                child: ((user?.userMetadata?['avatar_url'] as String?) == null)
-                    ? const Icon(Icons.person)
-                    : null,
-              ),
-              decoration: BoxDecoration(
-                color: primaryColor,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text("Profile"),
-              onTap: () async {
-                // Navigate to ProfileScreen and refresh when returning.
-                bool? updated = await Navigator.pushNamed(context, '/profile') as bool?;
-                if (updated == true) {
-                  setState(() {});
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text("Settings"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text("Logout"),
-              onTap: () async {
-                await Supabase.instance.client.auth.signOut();
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-      appBar: AppBar(
-        title: Text("Welcome, ${user?.userMetadata?['full_name'] as String? ?? 'Guest'}"),
-        backgroundColor: primaryColor,
-        actions: [
-          // Mood Tracker button.
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MoodTrackerScreen()),
-              );
-            },
-          ),
-          // Global Feed button.
-          IconButton(
-            icon: const Icon(Icons.list),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const GlobalFeedScreen()),
-              );
-            },
-          ),
-          // Settings button - reload preferences on return.
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-              await _loadPreferences();
-            },
-          ),
-        ],
-      ),
+      // No AppBar here—only body.
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -390,7 +267,7 @@ class _EntryScreenState extends State<EntryScreen> {
             ),
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _supabaseService.fetchEntries(userId: user?.id),
+                future: _supabaseService.fetchEntries(userId: Supabase.instance.client.auth.currentUser?.id),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -413,58 +290,40 @@ class _EntryScreenState extends State<EntryScreen> {
                       itemCount: entries.length,
                       itemBuilder: (context, index) {
                         final entry = entries[index];
-                        switch (_entryListStyle) {
-                          case 'card':
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry['text'],
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
                                   children: [
-                                    Text(
-                                      entry['text'],
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    Chip(
+                                      label: Text(entry['mood'] ?? 'No mood'),
+                                      backgroundColor: Colors.orange.shade100,
+                                      labelStyle: const TextStyle(color: Colors.orange),
                                     ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Chip(
-                                          label: Text(entry['mood'] ?? 'No mood'),
-                                          backgroundColor: Colors.orange.shade100,
-                                          labelStyle: const TextStyle(color: Colors.orange),
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          "Created at: ${entry['created_at'].toString().split('.')[0]}",
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
+                                    const Spacer(),
+                                    Text(
+                                      "Created at: ${entry['created_at'].toString().split('.')[0]}",
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                                     ),
                                   ],
                                 ),
-                              ),
-                            );
-                          case 'compact':
-                            return ListTile(
-                              title: Text(entry['text']),
-                              subtitle: Text("Mood: ${entry['mood'] ?? 'No mood'}"),
-                            );
-                          case 'minimal':
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                entry['text'],
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            );
-                          default:
-                            return const SizedBox();
-                        }
+                              ],
+                            ),
+                          ),
+                        );
                       },
                     );
                   }
